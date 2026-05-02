@@ -1,6 +1,6 @@
 import streamlit as st
 import sqlite3
-import hashlib
+import hashlib   # ✅ replaced bcrypt
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -16,6 +16,105 @@ def load_predict():
     return predict_diet
 
 predict_diet = load_predict()
+
+# ================= SMART HEALTH LOGIC =================
+def generate_health_plan(diet, diseases, bmi, activity):
+
+    explanation = ""
+    tips = []
+    warning = ""
+    exercise = []
+
+    if "Balanced" in diet:
+        explanation = "Balanced diet includes carbohydrates, proteins, and healthy fats for overall health."
+    elif "Low Carb" in diet:
+        explanation = "Low-carb diet helps control blood sugar and supports weight loss."
+    elif "High Protein" in diet:
+        explanation = "High-protein diet helps in muscle building."
+    else:
+        explanation = f"{diet} supports overall health."
+
+    if "Diabetes" in diseases:
+        diet = "Low Carb Diet"
+        tips = [
+            "Avoid sugary foods and soft drinks",
+            "Eat whole grains and fiber-rich food",
+            "Monitor blood sugar regularly"
+        ]
+        warning = "High sugar intake can be dangerous."
+        exercise = ["Walking 30 mins", "Cycling", "Yoga"]
+
+    elif "Hypertension" in diseases:
+        diet = "Low Sodium Diet"
+        tips = [
+            "Reduce salt intake",
+            "Eat potassium-rich foods like banana",
+            "Avoid fried food"
+        ]
+        warning = "High BP can lead to heart problems."
+        exercise = ["Walking", "Meditation", "Breathing exercises"]
+
+    elif "Obesity" in diseases:
+        diet = "Weight Loss Diet"
+        tips = [
+            "Control portion size",
+            "Eat low-calorie foods",
+            "Avoid fast food"
+        ]
+        warning = "Obesity increases risk of multiple diseases."
+        exercise = ["Running", "HIIT", "Cycling"]
+
+    elif "Heart Disease" in diseases:
+        diet = "Heart Healthy Diet"
+        tips = [
+            "Avoid oily and fatty food",
+            "Eat more fruits and vegetables",
+            "Use less salt"
+        ]
+        warning = "Unhealthy diet can worsen heart condition."
+        exercise = ["Light walking", "Yoga"]
+
+    elif "PCOS" in diseases:
+        diet = "Hormonal Balance Diet"
+        tips = [
+            "Avoid sugar and processed food",
+            "Eat high protein meals",
+            "Maintain regular sleep"
+        ]
+        warning = "Hormonal imbalance needs consistent care."
+        exercise = ["Yoga", "Strength training"]
+
+    elif "Anemia" in diseases:
+        diet = "Iron Rich Diet"
+        tips = [
+            "Eat spinach and leafy vegetables",
+            "Include dates and jaggery",
+            "Take vitamin C with iron food"
+        ]
+        warning = "Low iron levels cause weakness."
+        exercise = ["Light walking"]
+
+    elif "Thyroid" in diseases:
+        diet = "Thyroid Support Diet"
+        tips = [
+            "Eat iodine-rich foods",
+            "Avoid junk food",
+            "Maintain balanced diet"
+        ]
+        warning = "Improper diet affects thyroid levels."
+        exercise = ["Yoga", "Walking"]
+
+    else:
+        tips = [
+            "Maintain balanced diet",
+            "Drink enough water",
+            "Stay active daily"
+        ]
+        warning = "Follow healthy lifestyle regularly."
+        exercise = ["Walking", "Stretching"]
+
+    return diet, explanation, tips, warning, exercise
+
 
 # ================= UI =================
 st.markdown("""
@@ -70,17 +169,14 @@ if choice == "Register":
     password = st.text_input("Password", type="password")
 
     if st.button("Register"):
-        hashed_pw = hashlib.sha256(password.encode()).hexdigest()
-
+        hashed_pw = hashlib.sha256(password.encode()).hexdigest()  # ✅ changed
         try:
-            c.execute(
-                "INSERT INTO users(name,email,password) VALUES(?,?,?)",
-                (name, email, hashed_pw)
-            )
+            c.execute("INSERT INTO users(name,email,password) VALUES(?,?,?)",
+                      (name, email, hashed_pw))
             conn.commit()
-            st.success("Registered successfully ✅")
+            st.success("Registered successfully")
         except:
-            st.error("Email already exists ❌")
+            st.error("Email already exists")
 
 # ================= LOGIN =================
 elif choice == "Login":
@@ -88,18 +184,14 @@ elif choice == "Login":
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        user = c.execute(
-            "SELECT * FROM users WHERE email=?",
-            (email,)
-        ).fetchone()
+        user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
 
-        hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+        hashed_pw = hashlib.sha256(password.encode()).hexdigest()  # ✅ changed
 
         if user and hashed_pw == user[3]:
             st.session_state.user = user[1]
-            st.success("Login successful 🎉")
         else:
-            st.error("Invalid credentials ❌")
+            st.error("Invalid credentials")
 
 # ================= MAIN =================
 if st.session_state.user:
@@ -124,32 +216,17 @@ if st.session_state.user:
 
     activity = st.selectbox("Activity Level", ["Low", "Moderate", "High"])
 
-    plan_type = st.radio("Plan Type", ["Normal", "Personalized", "Premium"])
-
     if st.button("Get Diet Plan"):
 
-        # mode selection
-        if plan_type == "Personalized":
-            mode = "yes"
-        elif plan_type == "Premium":
-            mode = "premium"
-        else:
-            mode = None
+        diet, guide = predict_diet(age, bmi, diseases, activity, gender, None, "", "")
 
-        diet, guide = predict_diet(
-            age, bmi, diseases, activity, gender,
-            mode, "", ""
-        )
-
-        # ===== DIET =====
         st.markdown(f"""
         <div class="card">
-        <h3>🍽️ Diet Plan</h3>
-        <b>{diet}</b>
+        <h3>🍽️ Recommended Diet</h3>
+        <p><b>{diet}</b></p>
         </div>
         """, unsafe_allow_html=True)
 
-        # ===== NUTRITION =====
         st.markdown(f"""
         <div class="card">
         <h3>📊 Nutrition</h3>
@@ -160,58 +237,32 @@ if st.session_state.user:
         </div>
         """, unsafe_allow_html=True)
 
-        # ===== FOODS =====
-        st.markdown(f"""
-        <div class="card">
-        <h3>🥗 Recommended Foods</h3>
-        {", ".join(guide["recommended_foods"])}
-        </div>
-        """, unsafe_allow_html=True)
+        final_diet, explanation, tips, warning, exercise = generate_health_plan(
+            diet, diseases, bmi, activity
+        )
 
         st.markdown(f"""
         <div class="card">
-        <h3>🚫 Foods to Avoid</h3>
-        {", ".join(guide["foods_to_avoid"])}
+        <h3>🤖 AI Insights</h3>
+
+        <b>Diet Plan:</b> {final_diet}<br><br>
+
+        <b>Explanation:</b><br>
+        {explanation}<br><br>
+
+        <b>Tips:</b><br>
+        1. {tips[0]}<br>
+        2. {tips[1]}<br>
+        3. {tips[2]}<br><br>
+
+        <b>Exercise Plan:</b><br>
+        - {", ".join(exercise)}<br><br>
+
+        <b>Warning:</b><br>
+        {warning}
+
         </div>
         """, unsafe_allow_html=True)
-
-        # ===== EXERCISE =====
-        if "exercise_plan" in guide:
-            st.markdown(f"""
-            <div class="card">
-            <h3>🏋️ Exercise Plan</h3>
-            {", ".join(guide["exercise_plan"])}
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ===== WEEKLY PLAN =====
-        if "weekly_plan" in guide:
-            text = ""
-            for d, meal in guide["weekly_plan"].items():
-                text += f"<b>{d}:</b> {meal}<br>"
-
-            st.markdown(f"""
-            <div class="card">
-            <h3>📅 Weekly Plan</h3>
-            {text}
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ===== PREMIUM =====
-        if "meal_plan" in guide:
-            text = ""
-            for d, meals in guide["meal_plan"].items():
-                text += f"<b>{d}</b><br>"
-                text += f"Breakfast: {meals['Breakfast']}<br>"
-                text += f"Lunch: {meals['Lunch']}<br>"
-                text += f"Dinner: {meals['Dinner']}<br><br>"
-
-            st.markdown(f"""
-            <div class="card">
-            <h3>🍽️ Full Meal Plan</h3>
-            {text}
-            </div>
-            """, unsafe_allow_html=True)
 
     if st.button("Logout"):
         st.session_state.user = None
